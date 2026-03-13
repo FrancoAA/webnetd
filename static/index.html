@@ -7,43 +7,126 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; background: #1a1a2e; overflow: hidden; font-family: sans-serif; }
+  html, body {
+    height: 100%; overflow: hidden;
+    background: #1c1c1e;
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    color: #d1d1d1;
+  }
 
-  #app { display: none; flex-direction: column; height: 100%; }
+  #app { display: none; flex-direction: column; height: 100%; position: relative; }
   #app.active { display: flex; }
 
-  #status {
-    padding: 4px 10px; font: 12px monospace;
-    color: #888; background: #0d0d1a; text-align: right;
+  #terminal { flex: 1; overflow: hidden; margin-bottom: 84px; }
+
+  /* Scrollbar styling */
+  .xterm-viewport::-webkit-scrollbar { width: 6px; }
+  .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
+  .xterm-viewport::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
   }
-  #status.connected { color: #4c4; }
-  #status.error { color: #c44; cursor: pointer; }
+  .xterm-viewport::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.18);
+  }
+  .xterm-viewport { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
 
-  #terminal { flex: 1; overflow: hidden; }
+  /* Floating input container */
+  #input-container {
+    position: absolute; bottom: 12px; left: 12px; right: 12px;
+    z-index: 10;
+    background: #2c2c2e;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    overflow: hidden;
+  }
 
-  /* Bottom input bar */
-  #input-bar {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 12px; background: #16213e;
-    border-top: 1px solid #0f3460;
+  /* Top row: input + buttons */
+  #input-row {
+    display: flex; align-items: center; gap: 0;
+    padding: 6px 6px 6px 14px;
   }
   #cmd-input {
-    flex: 1; padding: 10px 14px;
-    font: 14px 'Menlo', 'Monaco', 'Courier New', monospace;
-    background: #1a1a2e; color: #e0e0e0;
-    border: 1px solid #0f3460; border-radius: 6px;
-    outline: none;
+    flex: 1; padding: 8px 0;
+    font: 13px 'Menlo', 'Monaco', 'Courier New', monospace;
+    background: transparent; color: #d1d1d1;
+    border: none; outline: none;
   }
-  #cmd-input:focus { border-color: #4c4; }
-  #cmd-input::placeholder { color: #555; }
-  #send-btn, #upload-btn {
-    padding: 10px 14px; background: #0f3460; color: #ccc;
-    border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+  #cmd-input::placeholder { color: #48484a; }
+
+  #upload-btn, #send-btn {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; color: #636366;
+    border: none; border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+    flex-shrink: 0;
+  }
+  #upload-btn:hover, #send-btn:hover {
+    color: #d1d1d1;
+    background: rgba(255,255,255,0.06);
+  }
+  #upload-btn svg { width: 16px; height: 16px; fill: currentColor; }
+  #send-btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+  /* Bottom row: toolbar */
+  #toolbar {
+    display: flex; align-items: center;
+    padding: 4px 14px 6px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  #status {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: #636366;
+  }
+  #status.error { cursor: pointer; }
+  #status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #636366;
+    flex-shrink: 0;
+  }
+  #status-dot.connecting {
+    background: #636366;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  #status-dot.connected {
+    background: #5ac85a;
+    animation: pulse 2.5s ease-in-out infinite;
+  }
+  #status-dot.error {
+    background: #e06060;
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  /* Hotkey buttons */
+  #hotkeys {
     display: flex; align-items: center; gap: 4px;
+    margin: 0 auto;
   }
-  #send-btn:hover, #upload-btn:hover { background: #1a4a8a; color: #fff; }
-  #upload-btn { padding: 10px; }
-  #upload-btn svg { width: 18px; height: 18px; fill: currentColor; }
+  .hotkey {
+    padding: 2px 8px;
+    font: 11px 'Menlo', 'Monaco', 'Courier New', monospace;
+    color: #636366; background: transparent;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 4px; cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    user-select: none; -webkit-user-select: none;
+  }
+  .hotkey:hover { color: #8e8e93; border-color: rgba(255,255,255,0.12); }
+  .hotkey.active {
+    color: #d1d1d1;
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.16);
+  }
+  #toolbar-label {
+    margin-left: auto;
+    font-size: 11px; color: #48484a;
+  }
 
   /* Login screen */
   #login-screen {
@@ -51,51 +134,50 @@
     justify-content: center; align-items: center;
   }
   #login-box {
-    background: #16213e; border: 1px solid #0f3460;
-    border-radius: 8px; padding: 40px; text-align: center;
-    min-width: 320px;
+    background: #232325;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 6px; padding: 36px; text-align: center;
+    min-width: 300px;
   }
-  #login-box h1 { color: #e0e0e0; margin-bottom: 8px; font-size: 22px; }
-  #login-box p { color: #888; margin-bottom: 24px; font-size: 14px; }
+  #login-box h1 {
+    color: #d1d1d1; margin-bottom: 6px;
+    font-size: 16px; font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+  #login-box p { color: #636366; margin-bottom: 20px; font-size: 12px; }
   #login-box input {
-    width: 100%; padding: 12px; font-size: 24px; text-align: center;
-    letter-spacing: 8px; background: #1a1a2e; border: 1px solid #0f3460;
-    border-radius: 4px; color: #e0e0e0; outline: none;
+    width: 100%; padding: 10px; font-size: 18px; text-align: center;
+    letter-spacing: 6px;
+    background: #1c1c1e;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px; color: #d1d1d1; outline: none;
+    transition: border-color 0.15s ease;
   }
-  #login-box input:focus { border-color: #4c4; }
+  #login-box input:focus { border-color: rgba(255,255,255,0.2); }
   #login-box button {
-    margin-top: 16px; width: 100%; padding: 10px;
-    background: #0f3460; color: #e0e0e0; border: none;
-    border-radius: 4px; font-size: 16px; cursor: pointer;
+    margin-top: 14px; width: 100%; padding: 9px;
+    background: transparent;
+    color: #8e8e93;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px; font-size: 13px; cursor: pointer;
+    font-family: inherit;
+    transition: color 0.15s ease, border-color 0.15s ease;
   }
-  #login-box button:hover { background: #1a4a8a; }
-  #login-error { color: #c44; margin-top: 12px; font-size: 14px; display: none; }
+  #login-box button:hover { color: #d1d1d1; border-color: rgba(255,255,255,0.16); }
+  #login-error { color: #e06060; margin-top: 10px; font-size: 12px; display: none; }
 
-  /* Upload overlay */
-  #upload-overlay {
-    display: none; position: fixed; inset: 0; z-index: 20;
-    background: rgba(0,0,0,0.7); justify-content: center; align-items: center;
+  /* Drag-and-drop overlay */
+  #drop-overlay {
+    display: none; position: fixed; inset: 0; z-index: 30;
+    background: rgba(0,0,0,0.5);
+    justify-content: center; align-items: center;
+    pointer-events: none;
   }
-  #upload-overlay.active { display: flex; }
-  #upload-box {
-    background: #16213e; border: 1px solid #0f3460;
-    border-radius: 8px; padding: 30px; text-align: center;
-    min-width: 360px; color: #e0e0e0;
-  }
-  #upload-box h2 { margin-bottom: 16px; font-size: 18px; }
-  #drop-zone {
-    border: 2px dashed #0f3460; border-radius: 8px; padding: 40px 20px;
-    margin-bottom: 16px; cursor: pointer; transition: border-color 0.2s;
-  }
-  #drop-zone.dragover { border-color: #4c4; }
-  #drop-zone p { color: #888; font-size: 14px; }
-  #upload-status { font-size: 13px; margin-top: 8px; }
-  #upload-status.ok { color: #4c4; }
-  #upload-status.err { color: #c44; }
-  #upload-close {
-    margin-top: 16px; padding: 8px 24px;
-    background: #0f3460; color: #e0e0e0; border: none;
-    border-radius: 4px; cursor: pointer;
+  #drop-overlay.active { display: flex; }
+  #drop-overlay-label {
+    font-size: 14px; color: #8e8e93;
+    border: 1px dashed rgba(255,255,255,0.2);
+    border-radius: 10px; padding: 40px 60px;
   }
 </style>
 </head>
@@ -115,27 +197,36 @@
 </div>
 
 <div id="app">
-  <div id="status">connecting...</div>
   <div id="terminal"></div>
-  <div id="input-bar">
-    <button id="upload-btn" title="Upload file">
-      <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
-    </button>
-    <input type="text" id="cmd-input" placeholder="Type a command..." autocomplete="off" spellcheck="false">
-    <button id="send-btn">Send</button>
+  <div id="input-container">
+    <div id="input-row">
+      <input type="text" id="cmd-input" placeholder="Type a command..." autocomplete="off" spellcheck="false">
+      <button id="upload-btn" title="Upload file">
+        <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+      </button>
+      <button id="send-btn" title="Send">
+        <svg viewBox="0 0 24 24"><path d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a.993.993 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .71.73 1.2 1.39.91z"/></svg>
+      </button>
+    </div>
+    <div id="toolbar">
+      <div id="status">
+        <span id="status-dot" class="connecting"></span>
+        <span id="status-text">connecting</span>
+      </div>
+      <div id="hotkeys">
+        <button class="hotkey" data-key="tab">Tab</button>
+        <button class="hotkey" data-key="esc">Esc</button>
+        <button class="hotkey modifier" data-key="ctrl">Ctrl</button>
+        <button class="hotkey modifier" data-key="alt">Alt</button>
+      </div>
+      <span id="toolbar-label">webnetd</span>
+    </div>
   </div>
 </div>
 
-<div id="upload-overlay">
-  <div id="upload-box">
-    <h2>Upload File</h2>
-    <div id="drop-zone">
-      <p>Drop a file here or click to select</p>
-      <input type="file" id="file-input" style="display:none">
-    </div>
-    <div id="upload-status"></div>
-    <button id="upload-close">Close</button>
-  </div>
+<input type="file" id="file-input" style="display:none">
+<div id="drop-overlay">
+  <div id="drop-overlay-label">Drop file to upload</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
@@ -154,27 +245,28 @@
   var loginError = document.getElementById('login-error');
   var app = document.getElementById('app');
   var statusEl = document.getElementById('status');
+  var statusDot = document.getElementById('status-dot');
+  var statusText = document.getElementById('status-text');
   var terminalEl = document.getElementById('terminal');
   var cmdInput = document.getElementById('cmd-input');
   var sendBtn = document.getElementById('send-btn');
 
   // Upload elements
   var uploadBtn = document.getElementById('upload-btn');
-  var uploadOverlay = document.getElementById('upload-overlay');
-  var uploadClose = document.getElementById('upload-close');
-  var dropZone = document.getElementById('drop-zone');
   var fileInput = document.getElementById('file-input');
-  var uploadStatusEl = document.getElementById('upload-status');
+  var dropOverlay = document.getElementById('drop-overlay');
+  var toolbarLabel = document.getElementById('toolbar-label');
 
   var term = new Terminal({
     cursorBlink: true,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'Menlo, Monaco, "Courier New", monospace',
     theme: {
-      background: '#1a1a2e',
-      foreground: '#e0e0e0',
-      cursor: '#e0e0e0',
-      selectionBackground: '#44475a',
+      background: '#1c1c1e',
+      foreground: '#d1d1d1',
+      cursor: '#8e8e93',
+      cursorAccent: '#1c1c1e',
+      selectionBackground: 'rgba(255,255,255,0.1)',
     },
   });
 
@@ -197,6 +289,68 @@
       e.preventDefault();
       sendCommand();
     }
+  });
+
+  // --- Hotkey buttons ---
+  var modifiers = { ctrl: false, alt: false };
+
+  function sendKey(data) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(new TextEncoder().encode(data));
+    }
+  }
+
+  function clearModifiers() {
+    modifiers.ctrl = false;
+    modifiers.alt = false;
+    document.querySelectorAll('.hotkey.modifier').forEach(function(btn) {
+      btn.classList.remove('active');
+    });
+  }
+
+  document.getElementById('hotkeys').addEventListener('click', function(e) {
+    var btn = e.target.closest('.hotkey');
+    if (!btn) return;
+    var key = btn.dataset.key;
+
+    if (key === 'ctrl' || key === 'alt') {
+      // Toggle modifier
+      modifiers[key] = !modifiers[key];
+      btn.classList.toggle('active', modifiers[key]);
+      return;
+    }
+
+    if (key === 'tab') {
+      if (modifiers.ctrl) { sendKey('\x09'); }  // Ctrl+Tab is still just tab in terminal
+      else { sendKey('\x09'); }
+    } else if (key === 'esc') {
+      sendKey('\x1b');
+    }
+
+    clearModifiers();
+  });
+
+  // Apply modifiers to regular key input from cmd-input
+  cmdInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') return; // handled above
+    if (!modifiers.ctrl && !modifiers.alt) return;
+
+    e.preventDefault();
+    var ch = e.key;
+    if (ch.length !== 1) return;
+
+    if (modifiers.ctrl) {
+      // Ctrl+key: send char code 1-26 for a-z
+      var code = ch.toLowerCase().charCodeAt(0) - 96;
+      if (code >= 1 && code <= 26) {
+        sendKey(String.fromCharCode(code));
+      }
+    } else if (modifiers.alt) {
+      // Alt+key: send ESC prefix then the character
+      sendKey('\x1b' + ch);
+    }
+
+    clearModifiers();
   });
 
   // --- Auth flow ---
@@ -261,8 +415,9 @@
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = function() {
-      statusEl.textContent = 'connected';
-      statusEl.className = 'connected';
+      statusDot.className = 'connected';
+      statusText.textContent = 'connected';
+      statusEl.className = '';
       sendResize();
     };
 
@@ -275,13 +430,15 @@
     };
 
     ws.onclose = function() {
-      statusEl.textContent = 'disconnected \u2014 click to reconnect';
+      statusDot.className = 'error';
+      statusText.textContent = 'disconnected';
       statusEl.className = 'error';
       term.write('\r\n\x1b[31m[connection closed]\x1b[0m\r\n');
     };
 
     ws.onerror = function() {
-      statusEl.textContent = 'error';
+      statusDot.className = 'error';
+      statusText.textContent = 'error';
       statusEl.className = 'error';
     };
 
@@ -305,6 +462,9 @@
 
     statusEl.onclick = function() {
       if (ws && ws.readyState === WebSocket.CLOSED) {
+        statusDot.className = 'connecting';
+        statusText.textContent = 'connecting';
+        statusEl.className = '';
         term.reset();
         connect();
       }
@@ -312,40 +472,11 @@
   }
 
   // --- File upload ---
-  uploadBtn.onclick = function() {
-    uploadOverlay.classList.add('active');
-    uploadStatusEl.textContent = '';
-    uploadStatusEl.className = '';
-  };
+  var dragCounter = 0;
+  var uploadTimer = null;
 
-  uploadClose.onclick = function() {
-    uploadOverlay.classList.remove('active');
-    cmdInput.focus();
-  };
-
-  uploadOverlay.onclick = function(e) {
-    if (e.target === uploadOverlay) {
-      uploadOverlay.classList.remove('active');
-      cmdInput.focus();
-    }
-  };
-
-  dropZone.onclick = function() { fileInput.click(); };
-
-  dropZone.ondragover = function(e) {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-  };
-  dropZone.ondragleave = function() {
-    dropZone.classList.remove('dragover');
-  };
-  dropZone.ondrop = function(e) {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length > 0) {
-      doUpload(e.dataTransfer.files[0]);
-    }
-  };
+  // Upload button opens file picker directly
+  uploadBtn.onclick = function() { fileInput.click(); };
 
   fileInput.onchange = function() {
     if (fileInput.files.length > 0) {
@@ -354,9 +485,44 @@
     }
   };
 
+  // Window-level drag and drop
+  document.addEventListener('dragenter', function(e) {
+    e.preventDefault();
+    dragCounter++;
+    if (dragCounter === 1) dropOverlay.classList.add('active');
+  });
+
+  document.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter === 0) dropOverlay.classList.remove('active');
+  });
+
+  document.addEventListener('dragover', function(e) {
+    e.preventDefault();
+  });
+
+  document.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dragCounter = 0;
+    dropOverlay.classList.remove('active');
+    if (e.dataTransfer.files.length > 0) {
+      doUpload(e.dataTransfer.files[0]);
+    }
+  });
+
+  function showUploadStatus(msg, type) {
+    if (uploadTimer) clearTimeout(uploadTimer);
+    toolbarLabel.textContent = msg;
+    toolbarLabel.style.color = type === 'ok' ? '#5ac85a' : type === 'err' ? '#e06060' : '#8e8e93';
+    uploadTimer = setTimeout(function() {
+      toolbarLabel.textContent = 'webnetd';
+      toolbarLabel.style.color = '';
+    }, 4000);
+  }
+
   function doUpload(file) {
-    uploadStatusEl.textContent = 'Uploading ' + file.name + '...';
-    uploadStatusEl.className = '';
+    showUploadStatus('uploading ' + file.name + '...', '');
 
     var form = new FormData();
     form.append('file', file);
@@ -372,12 +538,10 @@
         return res.json();
       })
       .then(function(data) {
-        uploadStatusEl.textContent = 'Uploaded ' + data.name + ' (' + formatSize(data.size) + ') to ' + data.path;
-        uploadStatusEl.className = 'ok';
+        showUploadStatus(data.name + ' (' + formatSize(data.size) + ') uploaded', 'ok');
       })
       .catch(function(err) {
-        uploadStatusEl.textContent = err.message;
-        uploadStatusEl.className = 'err';
+        showUploadStatus(err.message, 'err');
       });
   }
 
