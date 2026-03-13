@@ -3,13 +3,15 @@ package main
 import (
 	"os"
 	"os/exec"
+	"sync"
 
 	"github.com/creack/pty"
 )
 
 type terminal struct {
-	ptmx *os.File
-	cmd  *exec.Cmd
+	ptmx     *os.File
+	cmd      *exec.Cmd
+	closeOnce sync.Once
 }
 
 func newTerminal(shell string, rows, cols uint16) (*terminal, error) {
@@ -32,7 +34,9 @@ func (t *terminal) resize(rows, cols uint16) error {
 }
 
 func (t *terminal) close() {
-	t.ptmx.Close()
-	t.cmd.Process.Kill()
-	t.cmd.Wait()
+	t.closeOnce.Do(func() {
+		t.ptmx.Close()
+		t.cmd.Process.Kill()
+		t.cmd.Wait()
+	})
 }
