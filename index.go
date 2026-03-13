@@ -10,15 +10,42 @@ const indexHTML = `<!DOCTYPE html>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; background: #1a1a2e; overflow: hidden; font-family: sans-serif; }
-  #terminal { height: 100%; display: none; }
+
+  #app { display: none; flex-direction: column; height: 100%; }
+  #app.active { display: flex; }
+
   #status {
-    position: fixed; top: 0; right: 0;
     padding: 4px 10px; font: 12px monospace;
-    color: #888; background: rgba(0,0,0,0.7); z-index: 10;
-    display: none;
+    color: #888; background: #0d0d1a; text-align: right;
   }
   #status.connected { color: #4c4; }
-  #status.error { color: #c44; }
+  #status.error { color: #c44; cursor: pointer; }
+
+  #terminal { flex: 1; overflow: hidden; }
+
+  /* Bottom input bar */
+  #input-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; background: #16213e;
+    border-top: 1px solid #0f3460;
+  }
+  #cmd-input {
+    flex: 1; padding: 10px 14px;
+    font: 14px 'Menlo', 'Monaco', 'Courier New', monospace;
+    background: #1a1a2e; color: #e0e0e0;
+    border: 1px solid #0f3460; border-radius: 6px;
+    outline: none;
+  }
+  #cmd-input:focus { border-color: #4c4; }
+  #cmd-input::placeholder { color: #555; }
+  #send-btn, #upload-btn {
+    padding: 10px 14px; background: #0f3460; color: #ccc;
+    border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  #send-btn:hover, #upload-btn:hover { background: #1a4a8a; color: #fff; }
+  #upload-btn { padding: 10px; }
+  #upload-btn svg { width: 18px; height: 18px; fill: currentColor; }
 
   /* Login screen */
   #login-screen {
@@ -45,17 +72,6 @@ const indexHTML = `<!DOCTYPE html>
   }
   #login-box button:hover { background: #1a4a8a; }
   #login-error { color: #c44; margin-top: 12px; font-size: 14px; display: none; }
-
-  /* Toolbar */
-  #toolbar {
-    position: fixed; bottom: 0; right: 0; z-index: 10;
-    padding: 6px;
-  }
-  #toolbar button {
-    background: rgba(15,52,96,0.8); color: #ccc; border: 1px solid #0f3460;
-    border-radius: 4px; padding: 6px 12px; font-size: 12px; cursor: pointer;
-  }
-  #toolbar button:hover { background: #1a4a8a; color: #fff; }
 
   /* Upload overlay */
   #upload-overlay {
@@ -100,11 +116,16 @@ const indexHTML = `<!DOCTYPE html>
   </div>
 </div>
 
-<div id="status">connecting...</div>
-<div id="terminal"></div>
-
-<div id="toolbar">
-  <button id="upload-btn" title="Upload file">Upload</button>
+<div id="app">
+  <div id="status">connecting...</div>
+  <div id="terminal"></div>
+  <div id="input-bar">
+    <button id="upload-btn" title="Upload file">
+      <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+    </button>
+    <input type="text" id="cmd-input" placeholder="Type a command..." autocomplete="off" spellcheck="false">
+    <button id="send-btn">Send</button>
+  </div>
 </div>
 
 <div id="upload-overlay">
@@ -126,14 +147,17 @@ const indexHTML = `<!DOCTYPE html>
 (function() {
   var AUTH_ENABLED = {{AUTH_ENABLED}};
   var authToken = '';
+  var ws = null;
 
   var loginScreen = document.getElementById('login-screen');
   var loginForm = document.getElementById('login-form');
   var pinInput = document.getElementById('pin-input');
   var loginError = document.getElementById('login-error');
+  var app = document.getElementById('app');
   var statusEl = document.getElementById('status');
   var terminalEl = document.getElementById('terminal');
-  var toolbar = document.getElementById('toolbar');
+  var cmdInput = document.getElementById('cmd-input');
+  var sendBtn = document.getElementById('send-btn');
 
   // Upload elements
   var uploadBtn = document.getElementById('upload-btn');
@@ -141,7 +165,7 @@ const indexHTML = `<!DOCTYPE html>
   var uploadClose = document.getElementById('upload-close');
   var dropZone = document.getElementById('drop-zone');
   var fileInput = document.getElementById('file-input');
-  var uploadStatus = document.getElementById('upload-status');
+  var uploadStatusEl = document.getElementById('upload-status');
 
   var term = new Terminal({
     cursorBlink: true,
@@ -158,6 +182,23 @@ const indexHTML = `<!DOCTYPE html>
   var fitAddon = new FitAddon.FitAddon();
   term.loadAddon(fitAddon);
   term.loadAddon(new WebLinksAddon.WebLinksAddon());
+
+  // --- Command input bar ---
+  function sendCommand() {
+    var cmd = cmdInput.value;
+    if (cmd === '' || !ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(new TextEncoder().encode(cmd + '\n'));
+    cmdInput.value = '';
+    cmdInput.focus();
+  }
+
+  sendBtn.onclick = sendCommand;
+  cmdInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sendCommand();
+    }
+  });
 
   // --- Auth flow ---
   if (AUTH_ENABLED) {
@@ -199,12 +240,11 @@ const indexHTML = `<!DOCTYPE html>
   }
 
   function startTerminal() {
-    statusEl.style.display = 'block';
-    terminalEl.style.display = 'block';
+    app.classList.add('active');
     term.open(terminalEl);
     fitAddon.fit();
     connect();
-    term.focus();
+    cmdInput.focus();
   }
 
   function connect() {
@@ -213,7 +253,7 @@ const indexHTML = `<!DOCTYPE html>
     if (authToken) {
       wsUrl += '?token=' + encodeURIComponent(authToken);
     }
-    var ws = new WebSocket(wsUrl);
+    ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = function() {
@@ -241,6 +281,7 @@ const indexHTML = `<!DOCTYPE html>
       statusEl.className = 'error';
     };
 
+    // Direct xterm input also still works (clicking on terminal)
     term.onData(function(data) {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(new TextEncoder().encode(data));
@@ -260,7 +301,7 @@ const indexHTML = `<!DOCTYPE html>
     window.addEventListener('resize', function() { fitAddon.fit(); });
 
     statusEl.onclick = function() {
-      if (ws.readyState === WebSocket.CLOSED) {
+      if (ws && ws.readyState === WebSocket.CLOSED) {
         term.reset();
         connect();
       }
@@ -270,19 +311,19 @@ const indexHTML = `<!DOCTYPE html>
   // --- File upload ---
   uploadBtn.onclick = function() {
     uploadOverlay.classList.add('active');
-    uploadStatus.textContent = '';
-    uploadStatus.className = '';
+    uploadStatusEl.textContent = '';
+    uploadStatusEl.className = '';
   };
 
   uploadClose.onclick = function() {
     uploadOverlay.classList.remove('active');
-    term.focus();
+    cmdInput.focus();
   };
 
   uploadOverlay.onclick = function(e) {
     if (e.target === uploadOverlay) {
       uploadOverlay.classList.remove('active');
-      term.focus();
+      cmdInput.focus();
     }
   };
 
@@ -311,8 +352,8 @@ const indexHTML = `<!DOCTYPE html>
   };
 
   function doUpload(file) {
-    uploadStatus.textContent = 'Uploading ' + file.name + '...';
-    uploadStatus.className = '';
+    uploadStatusEl.textContent = 'Uploading ' + file.name + '...';
+    uploadStatusEl.className = '';
 
     var form = new FormData();
     form.append('file', file);
@@ -328,12 +369,12 @@ const indexHTML = `<!DOCTYPE html>
         return res.json();
       })
       .then(function(data) {
-        uploadStatus.textContent = 'Uploaded ' + data.name + ' (' + formatSize(data.size) + ') to ' + data.path;
-        uploadStatus.className = 'ok';
+        uploadStatusEl.textContent = 'Uploaded ' + data.name + ' (' + formatSize(data.size) + ') to ' + data.path;
+        uploadStatusEl.className = 'ok';
       })
       .catch(function(err) {
-        uploadStatus.textContent = err.message;
-        uploadStatus.className = 'err';
+        uploadStatusEl.textContent = err.message;
+        uploadStatusEl.className = 'err';
       });
   }
 
