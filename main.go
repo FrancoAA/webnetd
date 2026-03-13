@@ -1,11 +1,12 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+
+	flag "github.com/spf13/pflag"
 )
 
 var version = "dev"
@@ -15,7 +16,7 @@ func main() {
 	shell := flag.String("shell", "", "shell to execute (default: user's login shell or /bin/sh)")
 	authEnabled := flag.Bool("auth", false, "enable PIN authentication")
 	uploadDir := flag.String("upload-dir", ".", "directory for file uploads")
-	showVersion := flag.Bool("version", false, "print version and exit")
+	showVersion := flag.BoolP("version", "v", false, "print version and exit")
 	flag.Parse()
 
 	if *showVersion {
