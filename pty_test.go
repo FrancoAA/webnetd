@@ -42,7 +42,7 @@ func TestTerminalReadWrite(t *testing.T) {
 	defer term.close()
 
 	// Write a command
-	_, err = term.ptmx.Write([]byte("echo test-pty-output\n"))
+	_, err = term.ptmx.WriteString("echo test-pty-output\n")
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestTerminalClose(t *testing.T) {
 	term.close()
 
 	// After close, writing should fail
-	_, err = term.ptmx.Write([]byte("test\n"))
+	_, err = term.ptmx.WriteString("test\n")
 	if err == nil {
 		t.Fatal("write after close should fail")
 	}

@@ -1,0 +1,45 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+    - misspell
+    - unconvert
+    - gocritic
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    errcheck:
+      exclude-functions:
+        - (net/http.ResponseWriter).Write
+        - (*github.com/gorilla/websocket.Conn).WriteMessage
+        - (*github.com/gorilla/websocket.Conn).Close
+        - (*github.com/gorilla/websocket.Conn).SetReadDeadline
+        - (*os.File).Close
+        - (*os.Process).Kill
+        - (*os/exec.Cmd).Wait
+        - (*os.File).SetReadDeadline
+        - (*os.File).Write
+        - (*html/template.Template).Execute
+        - (*encoding/json.Encoder).Encode
+        - (io.Closer).Close
+        - (mime/multipart.File).Close
+        - fmt.Fprintf
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+      disabled-checks:
+        - hugeParam
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck

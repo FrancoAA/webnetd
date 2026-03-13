@@ -99,8 +99,8 @@ func TestHandleUpload(t *testing.T) {
 		Size int64  `json:"size"`
 		Path string `json:"path"`
 	}
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("failed to parse response: %v", err)
+	if unmarshalErr := json.Unmarshal(w.Body.Bytes(), &resp); unmarshalErr != nil {
+		t.Fatalf("failed to parse response: %v", unmarshalErr)
 	}
 	if !resp.OK || resp.Name != "testfile.txt" || resp.Size != 11 {
 		t.Fatalf("unexpected response: %+v", resp)

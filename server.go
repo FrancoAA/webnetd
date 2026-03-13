@@ -194,12 +194,14 @@ wsloop:
 			case "resize":
 				var r resizeMsg
 				if err := json.Unmarshal(m.Data, &r); err == nil && r.Rows > 0 && r.Cols > 0 {
-					term.resize(r.Rows, r.Cols)
+					if err := term.resize(r.Rows, r.Cols); err != nil {
+						log.Printf("pty resize: %v", err)
+					}
 				}
 			case "input":
 				var input string
 				if err := json.Unmarshal(m.Data, &input); err == nil {
-					term.ptmx.Write([]byte(input))
+					term.ptmx.WriteString(input) //nolint:errcheck // best-effort write
 				}
 			}
 		}
