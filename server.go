@@ -170,6 +170,7 @@ func (s *server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// WebSocket -> PTY
+wsloop:
 	for {
 		msgType, msg, err := conn.ReadMessage()
 		if err != nil {
@@ -181,7 +182,7 @@ func (s *server) handleWS(w http.ResponseWriter, r *http.Request) {
 			// Raw terminal input
 			if _, err := term.ptmx.Write(msg); err != nil {
 				log.Printf("pty write: %v", err)
-				break
+				break wsloop
 			}
 		case websocket.TextMessage:
 			// JSON control messages
