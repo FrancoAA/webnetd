@@ -146,6 +146,7 @@
   var AUTH_ENABLED = {{.AuthEnabled}};
   var authToken = '';
   var ws = null;
+  var disposables = [];
 
   var loginScreen = document.getElementById('login-screen');
   var loginForm = document.getElementById('login-form');
@@ -241,11 +242,16 @@
     app.classList.add('active');
     term.open(terminalEl);
     fitAddon.fit();
+    window.addEventListener('resize', function() { fitAddon.fit(); });
     connect();
     cmdInput.focus();
   }
 
   function connect() {
+    // Dispose previous event listeners to prevent duplicates on reconnect
+    disposables.forEach(function(d) { d.dispose(); });
+    disposables = [];
+
     var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     var wsUrl = proto + '//' + location.host + '/ws';
     if (authToken) {
@@ -280,11 +286,11 @@
     };
 
     // Direct xterm input also still works (clicking on terminal)
-    term.onData(function(data) {
+    disposables.push(term.onData(function(data) {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(new TextEncoder().encode(data));
       }
-    });
+    }));
 
     function sendResize() {
       if (ws.readyState === WebSocket.OPEN) {
@@ -295,8 +301,7 @@
       }
     }
 
-    term.onResize(function() { sendResize(); });
-    window.addEventListener('resize', function() { fitAddon.fit(); });
+    disposables.push(term.onResize(function() { sendResize(); }));
 
     statusEl.onclick = function() {
       if (ws && ws.readyState === WebSocket.CLOSED) {

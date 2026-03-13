@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -128,7 +127,12 @@ func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("upload: %s (%d bytes) from %s", name, written, r.RemoteAddr)
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"ok":true,"name":%q,"size":%d,"path":%q}`, name, written, destPath)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"ok":   true,
+		"name": name,
+		"size": written,
+		"path": destPath,
+	})
 }
 
 func (s *server) handleWS(w http.ResponseWriter, r *http.Request) {
@@ -157,9 +161,6 @@ func (s *server) handleWS(w http.ResponseWriter, r *http.Request) {
 		for {
 			n, err := term.ptmx.Read(buf)
 			if err != nil {
-				if err != io.EOF {
-					log.Printf("pty read: %v", err)
-				}
 				return
 			}
 			if err := conn.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
@@ -180,7 +181,7 @@ func (s *server) handleWS(w http.ResponseWriter, r *http.Request) {
 			// Raw terminal input
 			if _, err := term.ptmx.Write(msg); err != nil {
 				log.Printf("pty write: %v", err)
-				return
+				break
 			}
 		case websocket.TextMessage:
 			// JSON control messages
@@ -203,6 +204,8 @@ func (s *server) handleWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Close the PTY to unblock the read goroutine, preventing deadlock.
+	term.close()
 	<-done
 	log.Printf("session ended: remote=%s", r.RemoteAddr)
 }
