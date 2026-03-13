@@ -1,6 +1,4 @@
-package main
-
-const indexHTML = `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -145,7 +143,7 @@ const indexHTML = `<!DOCTYPE html>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
 <script>
 (function() {
-  var AUTH_ENABLED = {{AUTH_ENABLED}};
+  var AUTH_ENABLED = {{.AuthEnabled}};
   var authToken = '';
   var ws = null;
 
@@ -386,4 +384,4 @@ const indexHTML = `<!DOCTYPE html>
 })();
 </script>
 </body>
-</html>`
+</html>

@@ -3,20 +3,25 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/gorilla/websocket"
 )
+
+type indexData struct {
+	AuthEnabled bool
+}
 
 type server struct {
 	shell     string
 	auth      *auth
 	uploadDir string
+	indexTmpl *template.Template
 	upgrader  websocket.Upgrader
 	mux       *http.ServeMux
 }
@@ -33,9 +38,12 @@ type resizeMsg struct {
 }
 
 func newServer(shell string, authEnabled bool, uploadDir string) *server {
+	tmpl := template.Must(template.New("index").Parse(indexHTML))
+
 	s := &server{
 		shell:     shell,
 		uploadDir: uploadDir,
+		indexTmpl: tmpl,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
@@ -72,8 +80,7 @@ func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	html := strings.Replace(indexHTML, "{{AUTH_ENABLED}}", fmt.Sprintf("%v", s.auth != nil), 1)
-	w.Write([]byte(html))
+	s.indexTmpl.Execute(w, indexData{AuthEnabled: s.auth != nil})
 }
 
 func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
